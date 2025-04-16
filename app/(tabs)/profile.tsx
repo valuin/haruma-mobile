@@ -1,8 +1,12 @@
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Settings, Star, BookOpen } from 'lucide-react-native';
+import { useFavoriteStore } from '@/store/useFavoriteStore';
 
 export default function ProfileScreen() {
+  // Get the favoriteIds Set from the store
+  const favoriteIds = useFavoriteStore((state) => state.favoriteIds);
+  
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -28,7 +32,8 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>16</Text>
+          {/* Display the actual count from the store */}
+          <Text style={styles.statNumber}>{favoriteIds.size}</Text>
           <Text style={styles.statLabel}>Favorites</Text>
         </View>
       </View>
@@ -46,7 +51,6 @@ export default function ProfileScreen() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

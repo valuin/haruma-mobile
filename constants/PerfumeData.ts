@@ -26,6 +26,30 @@ const SAMPLE_PERFUMES = [
     averageRating: 4.0,
     reviewCount: 80,
   },
+  {
+    id: "4",
+    name: "Sauvage",
+    brand: "Dior",
+    imageUrl: "https://fimgs.net/mdimg/perfume/375x500.31861.jpg",
+    averageRating: 4.0,
+    reviewCount: 80,
+  },
+  {
+    id: "5",
+    name: "Ultra Male",
+    brand: "Jean Paul Gaultier",
+    imageUrl: "https://fimgs.net/mdimg/perfume/375x500.30947.jpg",
+    averageRating: 4.0,
+    reviewCount: 80,
+  },
+  {
+    id: "6",
+    name: "Bleu de Chanel",
+    brand: "Chanel",
+    imageUrl: "https://fimgs.net/mdimg/perfume/375x500.25967.jpg",
+    averageRating: 4.0,
+    reviewCount: 80,
+  },
 ];
 
 export default SAMPLE_PERFUMES;
