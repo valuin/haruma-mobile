@@ -1,122 +1,63 @@
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
-import { Colors } from '@/constants/Colors';
-import { Star } from 'lucide-react-native';
-
-const SAMPLE_PERFUMES = [
-  {
-    id: '1',
-    name: 'Rose Elixir',
-    brand: 'Floral Dreams',
-    imageUrl: 'https://images.unsplash.com/photo-1588405748880-515d2dcf0322?w=400',
-    averageRating: 4.5,
-    reviewCount: 128,
-  },
-  {
-    id: '2',
-    name: 'Ocean Breeze',
-    brand: 'Aqua Essence',
-    imageUrl: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=400',
-    averageRating: 4.2,
-    reviewCount: 95,
-  },
-];
+import React, { useRef, useState, useCallback } from "react";
+import { View, Text, FlatList } from "react-native";
+import { BottomSheetModal } from "@gorhom/bottom-sheet"; // Only need the type here now
+import PerfumeCard from "@/components/PerfumeCard";
+import PerfumeDetailSheet from "@/components/PerfumeDetailSheet"; // Import the new component
+import SAMPLE_PERFUMES from "@/constants/PerfumeData";
 
 export default function HomeScreen() {
+  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const [selectedPerfumeId, setSelectedPerfumeId] = useState<string | null>(
+    null
+  );
+
+  const handlePerfumePress = useCallback((perfumeId: string) => {
+    setSelectedPerfumeId(perfumeId);
+    bottomSheetModalRef.current?.present();
+  }, []);
+
+  // Callback for when the sheet is dismissed (by swipe or backdrop press)
+  const handleSheetDismiss = useCallback(() => {
+    setSelectedPerfumeId(null); // Clear the ID when sheet closes
+    console.log("Sheet dismissed");
+  }, []);
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Discover Fragrances</Text>
-        <Text style={styles.subtitle}>Find your signature scent</Text>
+    <View className="flex-1 bg-background">
+      {/* Main Screen Content */}
+      <View className="p-5 pt-10 flex-1">
+        {/* Header */}
+        <View className="pb-5">
+          <Text className="text-3xl font-bold text-gray-800 mb-1">
+            Discover Fragrances
+          </Text>
+          <Text className="text-lg text-gray-500">
+            Find your signature scent
+          </Text>
+        </View>
+
+        {/* Perfume List */}
+        <FlatList
+          data={SAMPLE_PERFUMES}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <PerfumeCard
+              perfume={item}
+              onPress={() => handlePerfumePress(item.id)}
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20 }}
+        />
       </View>
 
-      <FlatList
-        data={SAMPLE_PERFUMES}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card}>
-            <Image source={{ uri: item.imageUrl }} style={styles.image} />
-            <View style={styles.cardContent}>
-              <Text style={styles.perfumeName}>{item.name}</Text>
-              <Text style={styles.brandName}>{item.brand}</Text>
-              <View style={styles.ratingContainer}>
-                <Star size={16} color={Colors.primary} fill={Colors.primary} />
-                <Text style={styles.rating}>{item.averageRating}</Text>
-                <Text style={styles.reviews}>({item.reviewCount} reviews)</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-        showsVerticalScrollIndicator={false}
+      {/* Render the Bottom Sheet Component */}
+      <PerfumeDetailSheet
+        ref={bottomSheetModalRef} // Pass the ref
+        perfumeId={selectedPerfumeId} // Pass the selected ID
+        onDismiss={handleSheetDismiss} // Pass the dismiss handler
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    padding: 16,
-  },
-  header: {
-    marginTop: 60,
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.text,
-    opacity: 0.7,
-  },
-  card: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: Colors.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  image: {
-    width: '100%',
-    height: 200,
-  },
-  cardContent: {
-    padding: 16,
-  },
-  perfumeName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  brandName: {
-    fontSize: 14,
-    color: Colors.text,
-    opacity: 0.7,
-    marginBottom: 8,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rating: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.text,
-    marginLeft: 4,
-  },
-  reviews: {
-    fontSize: 14,
-    color: Colors.text,
-    opacity: 0.7,
-    marginLeft: 4,
-  },
-});
+// Styles are no longer needed here for the sheet content

@@ -8,11 +8,11 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <View style={styles.profileHeader}>
           <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' }}
+            source={require('@/assets/images/val-pic.png')}
             style={styles.profileImage}
           />
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>Sarah Parker</Text>
+            <Text style={styles.profileName}>Valtrizt Khalifah</Text>
             <Text style={styles.profileBio}>Fragrance Enthusiast</Text>
           </View>
           <TouchableOpacity style={styles.settingsButton}>
