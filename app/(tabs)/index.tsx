@@ -1,6 +1,6 @@
-import React from "react"; // Removed useRef, useState, useCallback
+import React from "react";
 import { View, Text, FlatList } from "react-native";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"; // Import the provider
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import PerfumeCard from "@/components/PerfumeCard";
 import SAMPLE_PERFUMES from "@/constants/PerfumeData";
 

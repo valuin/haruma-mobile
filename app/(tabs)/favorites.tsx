@@ -1,15 +1,14 @@
 import { View, Text, StyleSheet, FlatList } from "react-native";
 import { Colors } from "@/constants/Colors";
-import { Heart } from "lucide-react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useFavoriteStore } from "@/store/useFavoriteStore";
 import SAMPLE_PERFUMES from "@/constants/PerfumeData";
-import PerfumeCard, { Perfume } from "@/components/PerfumeCard"; // Import PerfumeCard and Perfume type
-import { useMemo } from "react"; // Import useMemo
+import PerfumeCard, { Perfume } from "@/components/PerfumeCard";
+import { useMemo } from "react";
 
 export default function FavoritesScreen() {
   const favoriteIds = useFavoriteStore((state) => state.favoriteIds);
 
-  // Filter the sample data to get the full perfume objects for favorites
   const favoritePerfumes = useMemo(() => {
     return SAMPLE_PERFUMES.filter((perfume) => favoriteIds.has(perfume.id));
   }, [favoriteIds]);
@@ -26,7 +25,7 @@ export default function FavoritesScreen() {
 
       {favoritePerfumes.length === 0 ? (
         <View style={styles.emptyState}>
-          <Heart size={48} color={Colors.primary} />
+          <Ionicons name="heart" size={48} color={Colors.primary} />
           <Text style={styles.emptyStateText}>No favorites yet</Text>
           <Text style={styles.emptyStateSubtext}>
             Start adding perfumes to your favorites list

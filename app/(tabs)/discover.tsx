@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, FlatList } from "react-native";
 import { Colors } from "@/constants/Colors";
-import { Search } from "lucide-react-native";
+import { Feather } from "@expo/vector-icons";
 import SAMPLE_PERFUMES from "@/constants/PerfumeData";
 import PerfumeCard from "@/components/PerfumeCard";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"; // Import provider
@@ -28,7 +28,12 @@ export default function DiscoverScreen() {
         </View>
 
         <View className="flex-row items-center bg-white rounded-xl p-3 mb-6">
-          <Search size={20} color={Colors.text} className="mr-2" />
+          <Feather
+            name="search"
+            size={20}
+            color={Colors.text}
+            style={{ marginRight: 8 }}
+          />
           <TextInput
             className="flex-1 text-base text-text"
             placeholder="Search perfumes..."

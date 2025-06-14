@@ -15,7 +15,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/haruma-logo.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.haruma.mobile"
     },
     "web": {
       "bundler": "metro",

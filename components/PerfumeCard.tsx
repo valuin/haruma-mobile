@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
-import { Star, Heart } from "lucide-react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useFavoriteStore } from "@/store/useFavoriteStore";
@@ -65,12 +65,10 @@ const PerfumeCard: React.FC<PerfumeCardProps> = ({ perfume }) => {
               style={styles.favoriteIconButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Heart
+              <Ionicons
+                name={favoriteIds.has(perfume.id) ? "heart" : "heart-outline"}
                 size={22}
                 color={Colors.primary}
-                fill={
-                  favoriteIds.has(perfume.id) ? Colors.primary : "transparent"
-                }
               />
             </TouchableOpacity>
           </View>
@@ -80,7 +78,7 @@ const PerfumeCard: React.FC<PerfumeCardProps> = ({ perfume }) => {
           <Text style={styles.brandName}>{perfume.brand}</Text>
           {/* Rating */}
           <View style={styles.ratingContainer}>
-            <Star size={16} color={Colors.primary} fill={Colors.primary} />
+            <Ionicons name="star" size={16} color={Colors.primary} />
             <Text style={styles.ratingText}>
               {perfume.averageRating.toFixed(1)}
             </Text>

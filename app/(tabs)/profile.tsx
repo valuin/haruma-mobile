@@ -1,18 +1,18 @@
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Colors } from '@/constants/Colors';
-import { Settings, Star, BookOpen } from 'lucide-react-native';
-import { useFavoriteStore } from '@/store/useFavoriteStore';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import { Colors } from "@/constants/Colors";
+import { Ionicons } from "@expo/vector-icons";
+import { useFavoriteStore } from "@/store/useFavoriteStore";
 
 export default function ProfileScreen() {
   // Get the favoriteIds Set from the store
   const favoriteIds = useFavoriteStore((state) => state.favoriteIds);
-  
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.profileHeader}>
           <Image
-            source={require('@/assets/images/val-pic.png')}
+            source={require("@/assets/images/val-pic.png")}
             style={styles.profileImage}
           />
           <View style={styles.profileInfo}>
@@ -20,7 +20,7 @@ export default function ProfileScreen() {
             <Text style={styles.profileBio}>Fragrance Enthusiast</Text>
           </View>
           <TouchableOpacity style={styles.settingsButton}>
-            <Settings size={24} color={Colors.text} />
+            <Ionicons name="settings-outline" size={24} color={Colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -40,11 +40,11 @@ export default function ProfileScreen() {
 
       <View style={styles.menuSection}>
         <TouchableOpacity style={styles.menuItem}>
-          <BookOpen size={24} color={Colors.text} />
+          <Ionicons name="book-outline" size={24} color={Colors.text} />
           <Text style={styles.menuText}>My Reviews</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem}>
-          <Star size={24} color={Colors.text} />
+          <Ionicons name="star-outline" size={24} color={Colors.text} />
           <Text style={styles.menuText}>Wishlist</Text>
         </TouchableOpacity>
       </View>
@@ -62,8 +62,8 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
   },
   profileImage: {
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text,
   },
   profileBio: {
@@ -89,18 +89,18 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   stats: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: Colors.white,
     padding: 16,
     marginTop: 1,
   },
   statItem: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   statNumber: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text,
   },
   statLabel: {
@@ -119,8 +119,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
   },
   menuText: {

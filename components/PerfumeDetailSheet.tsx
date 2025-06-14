@@ -17,7 +17,7 @@ import {
   BottomSheetBackdrop,
   BottomSheetScrollView, // Remove BottomSheetScrollView
 } from "@gorhom/bottom-sheet";
-import { Heart, Star } from "lucide-react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import SAMPLE_PERFUMES from "@/constants/PerfumeData";
 import { useFavoriteStore } from "@/store/useFavoriteStore";
@@ -152,11 +152,11 @@ const PerfumeDetailSheet = forwardRef<
         <Text style={styles.reviewAuthor}>{item.author}</Text>
         <View style={styles.reviewRating}>
           {[...Array(5)].map((_, i) => (
-            <Star
+            <Ionicons
               key={i}
+              name={i < item.rating ? "star" : "star-outline"}
               size={14}
               color={i < item.rating ? Colors.primary : Colors.secondary}
-              fill={i < item.rating ? Colors.primary : "transparent"}
               style={{ marginRight: 2 }}
             />
           ))}
@@ -176,14 +176,14 @@ const PerfumeDetailSheet = forwardRef<
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         disabled={!perfumeDetails} // Disable if details aren't loaded
       >
-        <Heart
+        <Ionicons
+          name={
+            perfumeDetails && favoriteIds.has(perfumeDetails.id)
+              ? "heart"
+              : "heart-outline"
+          }
           size={28}
           color={Colors.primary}
-          fill={
-            perfumeDetails && favoriteIds.has(perfumeDetails.id)
-              ? Colors.primary
-              : "transparent"
-          }
         />
       </TouchableOpacity>
 
@@ -230,13 +230,13 @@ const PerfumeDetailSheet = forwardRef<
                 <Text style={styles.reviewAuthor}>{item.author}</Text>
                 <View style={styles.reviewRating}>
                   {[...Array(5)].map((_, i) => (
-                    <Star
+                    <Ionicons
                       key={i}
+                      name={i < item.rating ? "star" : "star-outline"}
                       size={14}
                       color={
                         i < item.rating ? Colors.primary : Colors.secondary
                       }
-                      fill={i < item.rating ? Colors.primary : "transparent"}
                       style={{ marginRight: 2 }}
                     />
                   ))}
@@ -284,14 +284,12 @@ const PerfumeDetailSheet = forwardRef<
               onPress={() => toggleFavorite(perfumeDetails.id)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Heart
+              <Ionicons
+                name={
+                  favoriteIds.has(perfumeDetails.id) ? "heart" : "heart-outline"
+                }
                 size={28}
                 color={Colors.primary}
-                fill={
-                  favoriteIds.has(perfumeDetails.id)
-                    ? Colors.primary
-                    : "transparent"
-                }
               />
             </TouchableOpacity>
 
@@ -343,16 +341,14 @@ const PerfumeDetailSheet = forwardRef<
                       <Text style={styles.reviewAuthor}>{item.author}</Text>
                       <View style={styles.reviewRating}>
                         {[...Array(5)].map((_, i) => (
-                          <Star
+                          <Ionicons
                             key={i} // Inner key for the stars map
+                            name={i < item.rating ? "star" : "star-outline"}
                             size={14}
                             color={
                               i < item.rating
                                 ? Colors.primary
                                 : Colors.secondary
-                            }
-                            fill={
-                              i < item.rating ? Colors.primary : "transparent"
                             }
                             style={{ marginRight: 2 }}
                           />
