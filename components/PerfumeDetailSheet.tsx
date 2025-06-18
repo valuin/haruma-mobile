@@ -250,7 +250,7 @@ const PerfumeDetailSheet = forwardRef<
 
             {/* --- Perfume Details --- */}
             <Image
-              source={{ uri: perfumeDetails.imageUrl }}
+              source={{ uri: perfumeDetails.image_url }}
               style={styles.sheetImage}
             />
             <Text style={styles.sheetName}>{perfumeDetails.name}</Text>
