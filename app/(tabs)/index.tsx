@@ -17,7 +17,7 @@ export default function HomeScreen() {
     fetchPerfumes();
 
     return () => {
-      console.log("HomeScreen unmounted."); // <-- Add a cleanup function to check
+      console.log("HomeScreen unmounted.");
     };
   }, []);
 
