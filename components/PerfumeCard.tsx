@@ -80,10 +80,10 @@ const PerfumeCard: React.FC<PerfumeCardProps> = ({ perfume }) => {
           <View style={styles.ratingContainer}>
             <Ionicons name="star" size={16} color={Colors.primary} />
             <Text style={styles.ratingText}>
-              {perfume.averageRating.toFixed(1)}
+              {perfume.averageRating?.toFixed(1) || "0.0"}
             </Text>
             <Text style={styles.reviewText}>
-              ({perfume.reviewCount} reviews)
+              ({perfume.reviewCount || 0} reviews)
             </Text>
           </View>
         </View>
