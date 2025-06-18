@@ -3,7 +3,7 @@ export interface Perfume {
   name: string;
   brand: string;
   description: string;
-  imageUrl: string;
+  image_url: string;
   notes: string[];
   averageRating: number;
   reviewCount: number;

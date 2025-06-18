@@ -3,7 +3,7 @@ const SAMPLE_PERFUMES = [
     id: "1",
     name: "Versace Eros",
     brand: "VERSACE",
-    imageUrl:
+    image_url:
       "https://images.unsplash.com/photo-1587017539504-67cfbddac569?q=80&w=1935&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     averageRating: 4.5,
     reviewCount: 120,
@@ -12,7 +12,7 @@ const SAMPLE_PERFUMES = [
     id: "2",
     name: "Coco Noir",
     brand: "Chanel",
-    imageUrl:
+    image_url:
       "https://images.unsplash.com/photo-1594035910387-fea47794261f?w=400",
     averageRating: 4.2,
     reviewCount: 95,
