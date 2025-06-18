@@ -23,10 +23,28 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import { useFavoriteStore } from "@/store/useFavoriteStore";
-import { Perfume, Review } from "@/types/perfume";
+import { Perfume } from "@/types/perfume";
 import { supabase } from "@/supabase/supabase";
 
-// Fetch perfume details from Supabase
+interface ReviewWithUser {
+  id: string;
+  perfume_id: string;
+  user_id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  users?: {
+    username: string;
+  };
+}
+
+interface PerfumeDetailSheetProps {
+  perfumeId: string | null;
+  snapPoints: string[];
+  onDismiss?: () => void;
+}
+
+// Fetch perfume details
 const fetchPerfumeDetails = async (id: string): Promise<Perfume | null> => {
   try {
     const { data, error } = await supabase
@@ -47,17 +65,17 @@ const fetchPerfumeDetails = async (id: string): Promise<Perfume | null> => {
   }
 };
 
-// Fetch reviews from Supabase
-const fetchReviews = async (perfumeId: string): Promise<Review[]> => {
+// Fetch reviews with joined user data
+const fetchReviews = async (perfumeId: string): Promise<ReviewWithUser[]> => {
   try {
     const { data, error } = await supabase
       .from("reviews")
-      .select("*")
+      .select("*, users(username)")
       .eq("perfume_id", perfumeId)
-      .order("createdAt", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching reviews:", error);
+      console.error("Error fetching reviews with users:", error);
       return [];
     }
 
@@ -68,77 +86,65 @@ const fetchReviews = async (perfumeId: string): Promise<Review[]> => {
   }
 };
 
-interface PerfumeDetailSheetProps {
-  perfumeId: string | null;
-  snapPoints: string[];
-  onDismiss?: () => void;
-}
-
 const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>(
   ({ perfumeId, snapPoints, onDismiss }, ref: ForwardedRef<BottomSheetModal>) => {
     const [perfumeDetails, setPerfumeDetails] = useState<Perfume | null>(null);
+    const [reviews, setReviews] = useState<ReviewWithUser[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [reviews, setReviews] = useState<Review[]>([]);
     const [newReviewText, setNewReviewText] = useState("");
 
     const favoriteIds = useFavoriteStore((state) => state.favoriteIds);
     const toggleFavorite = useFavoriteStore((state) => state.toggleFavorite);
+
     const MY_RATING = 4;
 
     useEffect(() => {
-      if (perfumeId) {
-        setIsLoading(true);
-        setError(null);
-        setPerfumeDetails(null);
-        setReviews([]);
-        setNewReviewText("");
+      if (!perfumeId) return;
 
-        Promise.all([
-          fetchPerfumeDetails(perfumeId),
-          fetchReviews(perfumeId),
-        ])
-          .then(([perfumeData, reviewsData]) => {
-            if (perfumeData) {
-              setPerfumeDetails(perfumeData);
-              setReviews(reviewsData);
-            } else {
-              setError("Perfume details not found.");
-            }
-          })
-          .catch((err) => {
-            console.error("Error fetching data:", err);
-            setError("Failed to load details.");
-          })
-          .finally(() => setIsLoading(false));
-      } else {
-        setPerfumeDetails(null);
-        setIsLoading(false);
-        setError(null);
-        setReviews([]);
-        setNewReviewText("");
-      }
+      setIsLoading(true);
+      setError(null);
+      setPerfumeDetails(null);
+      setReviews([]);
+      setNewReviewText("");
+
+      Promise.all([
+        fetchPerfumeDetails(perfumeId),
+        fetchReviews(perfumeId),
+      ])
+        .then(([perfume, reviews]) => {
+          setPerfumeDetails(perfume);
+          setReviews(reviews);
+        })
+        .catch((err) => {
+          console.error("Error fetching data:", err);
+          setError("Failed to load details.");
+        })
+        .finally(() => setIsLoading(false));
     }, [perfumeId]);
 
     const handleSheetDismiss = useCallback(() => {
       setPerfumeDetails(null);
-      setIsLoading(false);
-      setError(null);
       setReviews([]);
       setNewReviewText("");
+      setError(null);
+      setIsLoading(false);
       onDismiss?.();
     }, [onDismiss]);
 
     const handleReviewSubmit = useCallback(() => {
-      if (newReviewText.trim() === "" || !perfumeDetails) return;
+      if (!newReviewText.trim() || !perfumeDetails) return;
 
-      const newReview: Review = {
-        id: `myReview_${Date.now()}`,
-        perfumeId: perfumeDetails.id,
-        userId: "user_id", 
+      const newReview: ReviewWithUser = {
+        id: `temp_${Date.now()}`,
+        perfume_id: perfumeDetails.id,
+        user_id: "currentUser",
         rating: MY_RATING,
         comment: newReviewText.trim(),
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        users: {
+          username: "You",
+        },
       };
 
       setReviews((prev) => [newReview, ...prev]);
@@ -168,12 +174,12 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
         onDismiss={handleSheetDismiss}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: "#ffffff" }}
+        backgroundStyle={{ backgroundColor: "#fff" }}
       >
         <BottomSheetScrollView contentContainerStyle={styles.sheetContentContainer}>
           {isLoading ? (
             <View style={styles.centerContainer}>
-              <ActivityIndicator size="large" color={Colors.primary} style={styles.loader} />
+              <ActivityIndicator size="large" color={Colors.primary} />
               <Text style={styles.loadingText}>Loading perfume details...</Text>
             </View>
           ) : error ? (
@@ -186,7 +192,6 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
               <TouchableOpacity
                 style={styles.favoriteButton}
                 onPress={() => toggleFavorite(perfumeDetails.id)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons
                   name={favoriteIds.has(perfumeDetails.id) ? "heart" : "heart-outline"}
@@ -195,10 +200,7 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
                 />
               </TouchableOpacity>
 
-              <Image
-                source={{ uri: perfumeDetails.imageUrl }}
-                style={styles.sheetImage}
-              />
+              <Image source={{ uri: perfumeDetails.imageUrl }} style={styles.sheetImage} />
               <Text style={styles.sheetName}>{perfumeDetails.name}</Text>
               <Text style={styles.sheetBrand}>{perfumeDetails.brand}</Text>
               <Text style={styles.sheetDetails}>
@@ -240,7 +242,7 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
                     <View key={item.id} style={styles.reviewItem}>
                       <View style={styles.reviewHeader}>
                         <Text style={styles.reviewAuthor}>
-                          {item.userId === "currentUser" ? "You" : `User ${item.userId}`}
+                          {item.users?.username ?? `User ${item.user_id}`}
                         </Text>
                         <View style={styles.reviewRating}>
                           {[...Array(5)].map((_, i) => (
@@ -254,7 +256,7 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
                           ))}
                         </View>
                       </View>
-                      <Text style={styles.reviewText}>{item.comment}</Text>
+                      <Text style={styles.reviewText}>{item.review_text}</Text>
                     </View>
                   ))
                 )}
@@ -273,20 +275,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 50,
-    position: "relative",
   },
   centerContainer: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 50,
   },
-  loader: {
-    marginBottom: 16,
-  },
   loadingText: {
     fontSize: 16,
     color: "#6b7280",
+    marginTop: 10,
   },
   errorText: {
     fontSize: 18,
