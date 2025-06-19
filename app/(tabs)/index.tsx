@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 import PerfumeCard from "@/components/PerfumeCard";
 import { Colors } from "@/constants/Colors";
 import { supabase } from "@/supabase/supabase";
 import { Perfume } from "@/types/perfume";
+import { fetchPerfumesWithStats } from "@/utils/fetchPerfumesWithStats";
 
 export default function HomeScreen() {
   const [perfumes, setPerfumes] = useState<Perfume[]>([]);
@@ -21,30 +29,19 @@ export default function HomeScreen() {
     };
   }, []);
 
-  
-
   const fetchPerfumes = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      const { data, error } = await supabase
-        .from('perfumes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      setPerfumes(data || []);
+      const perfumesWithStats = await fetchPerfumesWithStats();
+      setPerfumes(perfumesWithStats);
     } catch (error) {
-      console.error('Error fetching perfumes:', error);
-      setError('Failed to load perfumes. Please try again.');
+      console.error("Error fetching perfumes:", error);
+      setError("Failed to load perfumes. Please try again.");
       Alert.alert(
-        'Error',
-        'Failed to load perfumes. Please check your internet connection and try again.',
-        [{ text: 'OK' }]
+        "Error",
+        "Failed to load perfumes. Please check your internet connection and try again.",
+        [{ text: "OK" }]
       );
     } finally {
       setLoading(false);
@@ -74,7 +71,9 @@ export default function HomeScreen() {
       return (
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>No perfumes found</Text>
-          <Text style={styles.emptySubtext}>Check back later for new fragrances</Text>
+          <Text style={styles.emptySubtext}>
+            Check back later for new fragrances
+          </Text>
         </View>
       );
     }
@@ -135,8 +134,8 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   loadingText: {
@@ -146,26 +145,26 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: "#ef4444",
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
   },
   errorSubtext: {
     fontSize: 14,
     color: "#6b7280",
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: "#1f2937",
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
     color: "#6b7280",
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

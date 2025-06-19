@@ -1,13 +1,10 @@
 export interface Perfume {
   id: string;
   name: string;
-
   brand: string;
-
   description: string;
   image_url: string;
   notes: string[];
-
   averageRating: number;
   reviewCount: number;
 

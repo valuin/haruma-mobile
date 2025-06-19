@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,6 +14,7 @@ import { Colors } from "@/constants/Colors";
 import { supabase } from "@/supabase/supabase";
 import { Perfume } from "@/types/perfume";
 import { useFavoriteStore } from "@/store/useFavoriteStore";
+import { fetchPerfumesWithStats } from "@/utils/fetchPerfumesWithStats";
 
 export default function FavoritesScreen() {
   const [favoritePerfumes, setFavoritePerfumes] = useState<Perfume[]>([]);
@@ -30,31 +37,17 @@ export default function FavoritesScreen() {
     try {
       setLoading(true);
       setError(null);
-
-      // Convert Set to Array for the query
       const favoriteIdsArray = Array.from(favoriteIds);
-
       if (favoriteIdsArray.length === 0) {
         setFavoritePerfumes([]);
         setLoading(false);
         return;
       }
-
-      const { data, error } = await supabase
-        .from('perfumes')
-        .select('*')
-        .in('id', favoriteIdsArray)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      console.log('Favorite perfumes data:', JSON.stringify(data, null, 2));
-      setFavoritePerfumes(data || []);
+      const perfumesWithStats = await fetchPerfumesWithStats(favoriteIdsArray);
+      setFavoritePerfumes(perfumesWithStats);
     } catch (error) {
-      console.error('Error fetching favorite perfumes:', error);
-      setError('Failed to load favorite perfumes. Please try again.');
+      console.error("Error fetching favorite perfumes:", error);
+      setError("Failed to load favorite perfumes. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -86,7 +79,8 @@ export default function FavoritesScreen() {
           <Ionicons name="heart-outline" size={64} color="#9ca3af" />
           <Text style={styles.emptyText}>No favorites yet</Text>
           <Text style={styles.emptySubtext}>
-            Start exploring and tap the heart icon to save your favorite fragrances
+            Start exploring and tap the heart icon to save your favorite
+            fragrances
           </Text>
         </View>
       );
@@ -121,14 +115,19 @@ export default function FavoritesScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.titleContainer}>
-              <Ionicons name="heart" size={32} color={Colors.primary || "#ef4444"} />
+              <Ionicons
+                name="heart"
+                size={32}
+                color={Colors.primary || "#ef4444"}
+              />
               <Text style={styles.title}>My Favorites</Text>
             </View>
             <Text style={styles.subtitle}>
-              {favoriteIds.size > 0 
-                ? `${favoriteIds.size} favorite${favoriteIds.size === 1 ? '' : 's'}`
-                : 'Your loved fragrances will appear here'
-              }
+              {favoriteIds.size > 0
+                ? `${favoriteIds.size} favorite${
+                    favoriteIds.size === 1 ? "" : "s"
+                  }`
+                : "Your loved fragrances will appear here"}
             </Text>
           </View>
 
@@ -170,41 +169,41 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
     color: "#6b7280",
-    textAlign: 'center',
+    textAlign: "center",
   },
   errorText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: "#ef4444",
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
     marginTop: 16,
   },
   errorSubtext: {
     fontSize: 14,
     color: "#6b7280",
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: "#1f2937",
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
     color: "#6b7280",
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
   },
 });

@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  TextInput,
+} from "react-native";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import PerfumeCard from "@/components/PerfumeCard";
 import { Colors } from "@/constants/Colors";
 import { supabase } from "@/supabase/supabase";
-import { Perfume } from "@/types/perfume";
+import { Perfume, Review } from "@/types/perfume";
 
 export default function DiscoverScreen() {
   const [perfumes, setPerfumes] = useState<Perfume[]>([]);
@@ -31,15 +39,15 @@ export default function DiscoverScreen() {
     } else {
       const filtered = perfumes.filter((perfume) => {
         const query = searchQuery.toLowerCase();
-        
+
         // Safely check each property with null/undefined checks
         const name = perfume.name?.toLowerCase() || "";
         const brand = perfume.brand?.toLowerCase() || "";
         const description = perfume.description?.toLowerCase() || "";
-        
+
         // Handle notes array safely
-        const notesString = Array.isArray(perfume.notes) 
-          ? perfume.notes.join(" ").toLowerCase() 
+        const notesString = Array.isArray(perfume.notes)
+          ? perfume.notes.join(" ").toLowerCase()
           : "";
 
         return (
@@ -53,29 +61,57 @@ export default function DiscoverScreen() {
     }
   }, [searchQuery, perfumes]);
 
+  const fetchPerfumesWithStats = async (): Promise<Perfume[]> => {
+    // Fetch all perfumes
+    const { data: perfumes, error: perfumeError } = await supabase
+      .from("perfumes")
+      .select("*");
+    if (perfumeError) throw perfumeError;
+
+    // Fetch all reviews
+    const { data: reviews, error: reviewError } = await supabase
+      .from("reviews")
+      .select("id, perfume_id, rating");
+    if (reviewError) throw reviewError;
+
+    // Group reviews by perfume_id
+    const reviewsByPerfume: Record<string, Review[]> = {};
+    (reviews || []).forEach((review) => {
+      const r = review as { perfume_id: string; rating: number };
+      if (!reviewsByPerfume[r.perfume_id]) reviewsByPerfume[r.perfume_id] = [];
+      reviewsByPerfume[r.perfume_id].push(r as Review);
+    });
+
+    // Attach stats to each perfume
+    return (perfumes || []).map((perfume: Perfume) => {
+      const perfumeReviews = reviewsByPerfume[perfume.id] || [];
+      const reviewCount = perfumeReviews.length;
+      const averageRating =
+        reviewCount > 0
+          ? perfumeReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+            reviewCount
+          : 0;
+      return {
+        ...perfume,
+        averageRating,
+        reviewCount,
+      };
+    });
+  };
+
   const fetchPerfumes = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      const { data, error } = await supabase
-        .from('perfumes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      console.log('Raw data from Supabase:', JSON.stringify(data, null, 2));
-      setPerfumes(data || []);
+      const perfumesWithStats = await fetchPerfumesWithStats();
+      setPerfumes(perfumesWithStats);
     } catch (error) {
-      console.error('Error fetching perfumes:', error);
-      setError('Failed to load perfumes. Please try again.');
+      console.error("Error fetching perfumes:", error);
+      setError("Failed to load perfumes. Please try again.");
       Alert.alert(
-        'Error',
-        'Failed to load perfumes. Please check your internet connection and try again.',
-        [{ text: 'OK' }]
+        "Error",
+        "Failed to load perfumes. Please check your internet connection and try again.",
+        [{ text: "OK" }]
       );
     } finally {
       setLoading(false);
@@ -105,7 +141,9 @@ export default function DiscoverScreen() {
       return (
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>No matches found</Text>
-          <Text style={styles.emptySubtext}>Try searching with different keywords</Text>
+          <Text style={styles.emptySubtext}>
+            Try searching with different keywords
+          </Text>
         </View>
       );
     }
@@ -114,7 +152,9 @@ export default function DiscoverScreen() {
       return (
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>No fragrances found</Text>
-          <Text style={styles.emptySubtext}>Check back later for new discoveries</Text>
+          <Text style={styles.emptySubtext}>
+            Check back later for new discoveries
+          </Text>
         </View>
       );
     }
@@ -144,7 +184,12 @@ export default function DiscoverScreen() {
 
           {/* Search Bar */}
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+            <Ionicons
+              name="search"
+              size={20}
+              color="#6b7280"
+              style={styles.searchIcon}
+            />
             <TextInput
               style={styles.searchInput}
               placeholder="Search fragrances, brands, or notes..."
@@ -200,7 +245,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9fafb",
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 6,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: "#e5e7eb",
@@ -212,14 +257,15 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: "#1f2937",
+    paddingVertical: 4,
   },
   clearIcon: {
     marginLeft: 12,
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   loadingText: {
@@ -229,26 +275,26 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: "#ef4444",
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
   },
   errorSubtext: {
     fontSize: 14,
     color: "#6b7280",
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: "#1f2937",
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
     color: "#6b7280",
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

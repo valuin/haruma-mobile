@@ -31,7 +31,7 @@ interface ReviewWithUser {
   perfume_id: string;
   user_id: string;
   rating: number;
-  comment: string;
+  review_text: string; 
   created_at: string;
   users?: {
     username: string;
@@ -86,8 +86,14 @@ const fetchReviews = async (perfumeId: string): Promise<ReviewWithUser[]> => {
   }
 };
 
-const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>(
-  ({ perfumeId, snapPoints, onDismiss }, ref: ForwardedRef<BottomSheetModal>) => {
+const PerfumeDetailSheet = forwardRef<
+  BottomSheetModal,
+  PerfumeDetailSheetProps
+>(
+  (
+    { perfumeId, snapPoints, onDismiss },
+    ref: ForwardedRef<BottomSheetModal>
+  ) => {
     const [perfumeDetails, setPerfumeDetails] = useState<Perfume | null>(null);
     const [reviews, setReviews] = useState<ReviewWithUser[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -108,10 +114,7 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
       setReviews([]);
       setNewReviewText("");
 
-      Promise.all([
-        fetchPerfumeDetails(perfumeId),
-        fetchReviews(perfumeId),
-      ])
+      Promise.all([fetchPerfumeDetails(perfumeId), fetchReviews(perfumeId)])
         .then(([perfume, reviews]) => {
           setPerfumeDetails(perfume);
           setReviews(reviews);
@@ -140,7 +143,7 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
         perfume_id: perfumeDetails.id,
         user_id: "currentUser",
         rating: MY_RATING,
-        comment: newReviewText.trim(),
+        review_text: newReviewText.trim(),
         created_at: new Date().toISOString(),
         users: {
           username: "You",
@@ -166,6 +169,13 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
       []
     );
 
+    // Calculate stats from reviews
+    const reviewCount = reviews.length;
+    const averageRating =
+      reviewCount > 0
+        ? reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviewCount
+        : 0;
+
     return (
       <BottomSheetModal
         ref={ref}
@@ -176,7 +186,9 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
         backdropComponent={renderBackdrop}
         backgroundStyle={{ backgroundColor: "#fff" }}
       >
-        <BottomSheetScrollView contentContainerStyle={styles.sheetContentContainer}>
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetContentContainer}
+        >
           {isLoading ? (
             <View style={styles.centerContainer}>
               <ActivityIndicator size="large" color={Colors.primary} />
@@ -194,21 +206,29 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
                 onPress={() => toggleFavorite(perfumeDetails.id)}
               >
                 <Ionicons
-                  name={favoriteIds.has(perfumeDetails.id) ? "heart" : "heart-outline"}
+                  name={
+                    favoriteIds.has(perfumeDetails.id)
+                      ? "heart"
+                      : "heart-outline"
+                  }
                   size={28}
                   color={Colors.primary}
                 />
               </TouchableOpacity>
 
-              <Image source={{ uri: perfumeDetails.imageUrl }} style={styles.sheetImage} />
+              <Image
+                source={{ uri: perfumeDetails.image_url }}
+                style={styles.sheetImage}
+              />
               <Text style={styles.sheetName}>{perfumeDetails.name}</Text>
               <Text style={styles.sheetBrand}>{perfumeDetails.brand}</Text>
               <Text style={styles.sheetDetails}>
-                Rating: {(perfumeDetails.averageRating ?? 0).toFixed(1)} (
-                {perfumeDetails.reviewCount ?? 0} reviews)
+                Rating: {averageRating.toFixed(1)} ({reviewCount} reviews)
               </Text>
               {perfumeDetails.description && (
-                <Text style={styles.sheetDetails}>{perfumeDetails.description}</Text>
+                <Text style={styles.sheetDetails}>
+                  {perfumeDetails.description}
+                </Text>
               )}
               {perfumeDetails.notes && perfumeDetails.notes.length > 0 && (
                 <Text style={styles.sheetDetails}>
@@ -250,7 +270,11 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
                               key={i}
                               name={i < item.rating ? "star" : "star-outline"}
                               size={14}
-                              color={i < item.rating ? Colors.primary : Colors.secondary}
+                              color={
+                                i < item.rating
+                                  ? Colors.primary
+                                  : Colors.secondary
+                              }
                               style={{ marginRight: 2 }}
                             />
                           ))}
@@ -268,6 +292,8 @@ const PerfumeDetailSheet = forwardRef<BottomSheetModal, PerfumeDetailSheetProps>
     );
   }
 );
+
+PerfumeDetailSheet.displayName = "PerfumeDetailSheet";
 
 const styles = StyleSheet.create({
   sheetContentContainer: {

@@ -12,7 +12,7 @@ export interface Perfume {
   brand: string;
   image_url: string;
   averageRating: number;
-  reviewCount: number;r
+  reviewCount: number;
 }
 
 interface PerfumeCardProps {
