@@ -39,6 +39,11 @@ interface MyReviewsSheetProps {}
 
 const fetchAllStoredReviews = async (): Promise<ReviewWithUser[]> => {
   try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const currentUserId = user?.id || "currentUser";
+
     const keys = await AsyncStorage.getAllKeys();
     const reviewKeys = keys.filter((key) =>
       key.startsWith(REVIEWS_STORAGE_KEY_PREFIX)
@@ -50,7 +55,7 @@ const fetchAllStoredReviews = async (): Promise<ReviewWithUser[]> => {
       value ? JSON.parse(value) : []
     );
 
-    return allReviews.filter((review) => review.user_id === "currentUser");
+    return allReviews.filter((review) => review.user_id === currentUserId);
   } catch (e) {
     console.error("Failed to fetch all stored reviews", e);
     return [];
@@ -83,11 +88,14 @@ const fetchPerfumesForReviews = async (
 const MyReviewsSheet = forwardRef<BottomSheetModal, MyReviewsSheetProps>(
   (_, ref: ForwardedRef<BottomSheetModal>) => {
     const [reviews, setReviews] = useState<ReviewWithPerfume[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
 
     const loadReviews = useCallback(async () => {
+      console.log("Loading reviews...");
       setIsLoading(true);
       const storedReviews = await fetchAllStoredReviews();
+      console.log("Found stored reviews:", storedReviews.length);
+
       if (storedReviews.length > 0) {
         const perfumes = await fetchPerfumesForReviews(storedReviews);
         const perfumeMap = new Map(perfumes.map((p) => [p.id, p]));
@@ -110,14 +118,10 @@ const MyReviewsSheet = forwardRef<BottomSheetModal, MyReviewsSheetProps>(
       setIsLoading(false);
     }, []);
 
-    const handleSheetChanges = useCallback(
-      (index: number) => {
-        if (index > -1) {
-          loadReviews();
-        }
-      },
-      [loadReviews]
-    );
+    // Load reviews when component mounts
+    useEffect(() => {
+      loadReviews();
+    }, [loadReviews]);
 
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -183,11 +187,10 @@ const MyReviewsSheet = forwardRef<BottomSheetModal, MyReviewsSheetProps>(
       return (
         <BottomSheetModal
           ref={ref}
-          snapPoints={["70%", "85%"]}
+          snapPoints={["50%", "90%"]}
           enablePanDownToClose
           backdropComponent={renderBackdrop}
           backgroundStyle={{ backgroundColor: Colors.background }}
-          onChange={handleSheetChanges}
         >
           {renderHeader()}
           <View style={styles.loadingContainer}>
@@ -200,11 +203,11 @@ const MyReviewsSheet = forwardRef<BottomSheetModal, MyReviewsSheetProps>(
     return (
       <BottomSheetModal
         ref={ref}
-        snapPoints={["70%", "85%"]}
+        snapPoints={["50%", "90%"]}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         backgroundStyle={{ backgroundColor: Colors.background }}
-        onChange={handleSheetChanges}
+        enableDynamicSizing={false}
       >
         <BottomSheetFlatList
           data={reviews}
