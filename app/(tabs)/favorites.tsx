@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import PerfumeCard from "@/components/PerfumeCard";
@@ -108,33 +107,31 @@ export default function FavoritesScreen() {
   };
 
   return (
-    <BottomSheetModalProvider>
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.titleContainer}>
-              <Ionicons
-                name="heart"
-                size={32}
-                color={Colors.primary || "#ef4444"}
-              />
-              <Text style={styles.title}>My Favorites</Text>
-            </View>
-            <Text style={styles.subtitle}>
-              {validFavoritesCount > 0
-                ? `${validFavoritesCount} favorite${
-                    validFavoritesCount === 1 ? "" : "s"
-                  }`
-                : "Your loved fragrances will appear here"}
-            </Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.titleContainer}>
+            <Ionicons
+              name="heart"
+              size={32}
+              color={Colors.primary || "#ef4444"}
+            />
+            <Text style={styles.title}>My Favorites</Text>
           </View>
-
-          {/* Content */}
-          {renderContent()}
+          <Text style={styles.subtitle}>
+            {validFavoritesCount > 0
+              ? `${validFavoritesCount} favorite${
+                  validFavoritesCount === 1 ? "" : "s"
+                }`
+              : "Your loved fragrances will appear here"}
+          </Text>
         </View>
-      </SafeAreaView>
-    </BottomSheetModalProvider>
+
+        {/* Content */}
+        {renderContent()}
+      </View>
+    </SafeAreaView>
   );
 }
 

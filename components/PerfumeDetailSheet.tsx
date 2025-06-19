@@ -34,7 +34,7 @@ interface ReviewWithUser {
   perfume_id: string;
   user_id: string;
   rating: number;
-  review_text: string; 
+  review_text: string;
   created_at: string;
   users?: {
     username: string;
@@ -202,22 +202,44 @@ const PerfumeDetailSheet = forwardRef<
     const handleReviewSubmit = useCallback(async () => {
       if (!newReviewText.trim() || !perfumeDetails) return;
 
-      const newReview: ReviewWithUser = {
-        id: `local_${Date.now()}`,
-        perfume_id: perfumeDetails.id,
-        user_id: "currentUser",
-        rating: MY_RATING,
-        review_text: newReviewText.trim(),
-        created_at: new Date().toISOString(),
-        users: {
-          username: "You",
-        },
-      };
+      try {
+        // Get current user info
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        let username = "You";
 
-      setReviews((prev) => [newReview, ...prev]);
-      setNewReviewText("");
+        if (user) {
+          const { data: userProfile } = await supabase
+            .from("users")
+            .select("username")
+            .eq("id", user.id)
+            .single();
 
-      await addStoredReview(perfumeDetails.id, newReview);
+          if (userProfile) {
+            username = userProfile.username;
+          }
+        }
+
+        const newReview: ReviewWithUser = {
+          id: `local_${Date.now()}`,
+          perfume_id: perfumeDetails.id,
+          user_id: user?.id || "currentUser",
+          rating: MY_RATING,
+          review_text: newReviewText.trim(),
+          created_at: new Date().toISOString(),
+          users: {
+            username: username,
+          },
+        };
+
+        setReviews((prev) => [newReview, ...prev]);
+        setNewReviewText("");
+
+        await addStoredReview(perfumeDetails.id, newReview);
+      } catch (error) {
+        console.error("Error submitting review:", error);
+      }
     }, [newReviewText, perfumeDetails]);
 
     const renderBackdrop = useCallback(
@@ -345,7 +367,9 @@ const PerfumeDetailSheet = forwardRef<
                             ))}
                           </View>
                         </View>
-                        <Text style={styles.reviewText}>{item.review_text}</Text>
+                        <Text style={styles.reviewText}>
+                          {item.review_text}
+                        </Text>
                       </View>
                     ))}
                   </View>

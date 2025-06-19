@@ -10,11 +10,23 @@ import {
   BottomSheetModalProvider,
 } from "@gorhom/bottom-sheet";
 import MyReviewsSheet from "@/components/MyReviewsSheet";
+import { supabase } from "@/supabase/supabase";
 
 const REVIEWS_STORAGE_KEY_PREFIX = "@reviews_";
 
+interface UserProfile {
+  username: string;
+  bio: string;
+  avatar_url?: string;
+}
+
 const fetchReviewCount = async (): Promise<number> => {
   try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const currentUserId = user?.id || "currentUser";
+
     const keys = await AsyncStorage.getAllKeys();
     const reviewKeys = keys.filter((key) =>
       key.startsWith(REVIEWS_STORAGE_KEY_PREFIX)
@@ -26,7 +38,7 @@ const fetchReviewCount = async (): Promise<number> => {
       value ? JSON.parse(value) : []
     );
 
-    return allReviews.filter((review) => review.user_id === "currentUser")
+    return allReviews.filter((review) => review.user_id === currentUserId)
       .length;
   } catch (e) {
     console.error("Failed to fetch review count", e);
@@ -38,6 +50,7 @@ export default function ProfileScreen() {
   // Get the favoriteIds Set from the store
   const favoriteIds = useFavoriteStore((state) => state.favoriteIds);
   const [reviewCount, setReviewCount] = useState(0);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const uuidRegex =
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -45,9 +58,34 @@ export default function ProfileScreen() {
     uuidRegex.test(id)
   ).length;
 
+  const fetchUserProfile = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("username, bio, avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        return;
+      }
+
+      setUserProfile(data);
+    } catch (error) {
+      console.error("Error in fetchUserProfile:", error);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchReviewCount().then(setReviewCount);
+      fetchUserProfile();
     }, [])
   );
 
@@ -55,58 +93,83 @@ export default function ProfileScreen() {
 
   const handlePresentModalPress = useCallback(() => {
     console.log("My Reviews button pressed - attempting to open sheet");
-    bottomSheetModalRef.current?.present();
+    console.log("bottomSheetModalRef current:", bottomSheetModalRef.current);
+
+    if (bottomSheetModalRef.current) {
+      bottomSheetModalRef.current.present();
+      console.log("Present() called successfully");
+    } else {
+      console.log("bottomSheetModalRef is null");
+    }
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Error signing out:", error.message);
+    }
   }, []);
 
   return (
-    <BottomSheetModalProvider>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.profileHeader}>
-            <Image
-              source={require("@/assets/images/val-pic.png")}
-              style={styles.profileImage}
-            />
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>Valtrizt Khalifah</Text>
-              <Text style={styles.profileBio}>Fragrance Enthusiast</Text>
-            </View>
-            <TouchableOpacity style={styles.settingsButton}>
-              <Ionicons name="settings-outline" size={24} color={Colors.text} />
-            </TouchableOpacity>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.profileHeader}>
+          <Ionicons name="person-circle-outline" size={80} color={Colors.text} />
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>
+              {userProfile?.username || "Loading..."}
+            </Text>
+            <Text style={styles.profileBio}>
+              {userProfile?.bio || "Fragrance Enthusiast"}
+            </Text>
           </View>
-        </View>
-
-        <View style={styles.stats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{reviewCount}</Text>
-            <Text style={styles.statLabel}>Reviews</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            {/* Display the actual count from the store */}
-            <Text style={styles.statNumber}>{validFavoritesCount}</Text>
-            <Text style={styles.statLabel}>Favorites</Text>
-          </View>
-        </View>
-
-        <View style={styles.menuSection}>
           <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handlePresentModalPress}
-            activeOpacity={0.7}
+            style={styles.settingsButton}
+            onPress={handleSignOut}
           >
-            <Ionicons name="book-outline" size={24} color={Colors.text} />
-            <Text style={styles.menuText}>My Reviews</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons name="star-outline" size={24} color={Colors.text} />
-            <Text style={styles.menuText}>Wishlist</Text>
+            <Ionicons name="log-out-outline" size={24} color={Colors.text} />
           </TouchableOpacity>
         </View>
       </View>
+
+      <View style={styles.stats}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{reviewCount}</Text>
+          <Text style={styles.statLabel}>Reviews</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          {/* Display the actual count from the store */}
+          <Text style={styles.statNumber}>{validFavoritesCount}</Text>
+          <Text style={styles.statLabel}>Favorites</Text>
+        </View>
+      </View>
+
+      <View style={styles.menuSection}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={handlePresentModalPress}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="book-outline" size={24} color={Colors.text} />
+          <Text style={styles.menuText}>My Reviews</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuItem}>
+          <Ionicons name="star-outline" size={24} color={Colors.text} />
+          <Text style={styles.menuText}>Wishlist</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
+          <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+          <Text style={[styles.menuText, { color: "#ef4444" }]}>
+            Sign Out
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <MyReviewsSheet ref={bottomSheetModalRef} />
-    </BottomSheetModalProvider>
+    </View>
   );
 }
 const styles = StyleSheet.create({

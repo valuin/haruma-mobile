@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 import PerfumeCard from "@/components/PerfumeCard";
 import { Colors } from "@/constants/Colors";
@@ -92,20 +91,18 @@ export default function HomeScreen() {
   };
 
   return (
-    <BottomSheetModalProvider>
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Discover Fragrances</Text>
-            <Text style={styles.subtitle}>Find your signature scent</Text>
-          </View>
-
-          {/* Content */}
-          {renderContent()}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Discover Fragrances</Text>
+          <Text style={styles.subtitle}>Find your signature scent</Text>
         </View>
-      </SafeAreaView>
-    </BottomSheetModalProvider>
+
+        {/* Content */}
+        {renderContent()}
+      </View>
+    </SafeAreaView>
   );
 }
 
