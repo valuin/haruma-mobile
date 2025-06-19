@@ -15,6 +15,7 @@ import {
   TextInput,
   Button,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   BottomSheetModal,
   BottomSheetScrollView,
@@ -25,6 +26,8 @@ import { Colors } from "@/constants/Colors";
 import { useFavoriteStore } from "@/store/useFavoriteStore";
 import { Perfume } from "@/types/perfume";
 import { supabase } from "@/supabase/supabase";
+
+const REVIEWS_STORAGE_KEY_PREFIX = "@reviews_";
 
 interface ReviewWithUser {
   id: string;
@@ -86,6 +89,39 @@ const fetchReviews = async (perfumeId: string): Promise<ReviewWithUser[]> => {
   }
 };
 
+// Get locally stored reviews
+const getStoredReviews = async (
+  perfumeId: string
+): Promise<ReviewWithUser[]> => {
+  try {
+    const jsonValue = await AsyncStorage.getItem(
+      `${REVIEWS_STORAGE_KEY_PREFIX}${perfumeId}`
+    );
+    return jsonValue != null ? JSON.parse(jsonValue) : [];
+  } catch (e) {
+    console.error("Failed to fetch reviews from storage", e);
+    return [];
+  }
+};
+
+// Add a review to local storage
+const addStoredReview = async (
+  perfumeId: string,
+  newReview: ReviewWithUser
+) => {
+  try {
+    const existingReviews = await getStoredReviews(perfumeId);
+    const updatedReviews = [newReview, ...existingReviews];
+    const jsonValue = JSON.stringify(updatedReviews);
+    await AsyncStorage.setItem(
+      `${REVIEWS_STORAGE_KEY_PREFIX}${perfumeId}`,
+      jsonValue
+    );
+  } catch (e) {
+    console.error("Failed to save review to storage", e);
+  }
+};
+
 const PerfumeDetailSheet = forwardRef<
   BottomSheetModal,
   PerfumeDetailSheetProps
@@ -108,22 +144,50 @@ const PerfumeDetailSheet = forwardRef<
     useEffect(() => {
       if (!perfumeId) return;
 
-      setIsLoading(true);
-      setError(null);
-      setPerfumeDetails(null);
-      setReviews([]);
-      setNewReviewText("");
+      const loadData = async () => {
+        setIsLoading(true);
+        setError(null);
+        setPerfumeDetails(null);
+        setReviews([]);
+        setNewReviewText("");
 
-      Promise.all([fetchPerfumeDetails(perfumeId), fetchReviews(perfumeId)])
-        .then(([perfume, reviews]) => {
+        try {
+          const [perfume, supabaseReviews, storedReviews] = await Promise.all([
+            fetchPerfumeDetails(perfumeId),
+            fetchReviews(perfumeId),
+            getStoredReviews(perfumeId),
+          ]);
+
           setPerfumeDetails(perfume);
-          setReviews(reviews);
-        })
-        .catch((err) => {
+
+          // Combine reviews, ensuring no duplicates, and sort by date
+          const allReviews = [...storedReviews, ...supabaseReviews];
+          const uniqueReviews: ReviewWithUser[] = [];
+          const seenIds = new Set<string>();
+
+          for (const review of allReviews) {
+            if (!seenIds.has(review.id)) {
+              uniqueReviews.push(review);
+              seenIds.add(review.id);
+            }
+          }
+
+          uniqueReviews.sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          );
+
+          setReviews(uniqueReviews);
+        } catch (err) {
           console.error("Error fetching data:", err);
           setError("Failed to load details.");
-        })
-        .finally(() => setIsLoading(false));
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadData();
     }, [perfumeId]);
 
     const handleSheetDismiss = useCallback(() => {
@@ -135,11 +199,11 @@ const PerfumeDetailSheet = forwardRef<
       onDismiss?.();
     }, [onDismiss]);
 
-    const handleReviewSubmit = useCallback(() => {
+    const handleReviewSubmit = useCallback(async () => {
       if (!newReviewText.trim() || !perfumeDetails) return;
 
       const newReview: ReviewWithUser = {
-        id: `temp_${Date.now()}`,
+        id: `local_${Date.now()}`,
         perfume_id: perfumeDetails.id,
         user_id: "currentUser",
         rating: MY_RATING,
@@ -153,7 +217,7 @@ const PerfumeDetailSheet = forwardRef<
       setReviews((prev) => [newReview, ...prev]);
       setNewReviewText("");
 
-      // TODO: Save to Supabase
+      await addStoredReview(perfumeDetails.id, newReview);
     }, [newReviewText, perfumeDetails]);
 
     const renderBackdrop = useCallback(
@@ -258,31 +322,33 @@ const PerfumeDetailSheet = forwardRef<
                 {reviews.length === 0 ? (
                   <Text style={styles.noReviewsText}>No reviews yet.</Text>
                 ) : (
-                  reviews.map((item) => (
-                    <View key={item.id} style={styles.reviewItem}>
-                      <View style={styles.reviewHeader}>
-                        <Text style={styles.reviewAuthor}>
-                          {item.users?.username ?? `User ${item.user_id}`}
-                        </Text>
-                        <View style={styles.reviewRating}>
-                          {[...Array(5)].map((_, i) => (
-                            <Ionicons
-                              key={i}
-                              name={i < item.rating ? "star" : "star-outline"}
-                              size={14}
-                              color={
-                                i < item.rating
-                                  ? Colors.primary
-                                  : Colors.secondary
-                              }
-                              style={{ marginRight: 2 }}
-                            />
-                          ))}
+                  <View>
+                    {reviews.map((item) => (
+                      <View key={item.id} style={styles.reviewItem}>
+                        <View style={styles.reviewHeader}>
+                          <Text style={styles.reviewAuthor}>
+                            {item.users?.username ?? `User ${item.user_id}`}
+                          </Text>
+                          <View style={styles.reviewRating}>
+                            {[...Array(5)].map((_, i) => (
+                              <Ionicons
+                                key={i}
+                                name={i < item.rating ? "star" : "star-outline"}
+                                size={14}
+                                color={
+                                  i < item.rating
+                                    ? Colors.primary
+                                    : Colors.secondary
+                                }
+                                style={{ marginRight: 2 }}
+                              />
+                            ))}
+                          </View>
                         </View>
+                        <Text style={styles.reviewText}>{item.review_text}</Text>
                       </View>
-                      <Text style={styles.reviewText}>{item.review_text}</Text>
-                    </View>
-                  ))
+                    ))}
+                  </View>
                 )}
               </View>
             </>

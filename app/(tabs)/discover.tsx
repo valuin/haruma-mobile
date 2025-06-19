@@ -62,13 +62,11 @@ export default function DiscoverScreen() {
   }, [searchQuery, perfumes]);
 
   const fetchPerfumesWithStats = async (): Promise<Perfume[]> => {
-    // Fetch all perfumes
     const { data: perfumes, error: perfumeError } = await supabase
       .from("perfumes")
       .select("*");
     if (perfumeError) throw perfumeError;
 
-    // Fetch all reviews
     const { data: reviews, error: reviewError } = await supabase
       .from("reviews")
       .select("id, perfume_id, rating");

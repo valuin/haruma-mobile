@@ -24,6 +24,13 @@ export default function FavoritesScreen() {
   // Get favorite IDs from Zustand store
   const favoriteIds = useFavoriteStore((state) => state.favoriteIds);
 
+  const uuidRegex =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  const validFavoriteIds = Array.from(favoriteIds).filter((id) =>
+    uuidRegex.test(id)
+  );
+  const validFavoritesCount = validFavoriteIds.length;
+
   useEffect(() => {
     console.log("FavoritesScreen mounted, fetching favorite perfumes...");
     fetchFavoritePerfumes();
@@ -37,13 +44,14 @@ export default function FavoritesScreen() {
     try {
       setLoading(true);
       setError(null);
-      const favoriteIdsArray = Array.from(favoriteIds);
-      if (favoriteIdsArray.length === 0) {
+
+      if (validFavoriteIds.length === 0) {
         setFavoritePerfumes([]);
         setLoading(false);
         return;
       }
-      const perfumesWithStats = await fetchPerfumesWithStats(favoriteIdsArray);
+
+      const perfumesWithStats = await fetchPerfumesWithStats(validFavoriteIds);
       setFavoritePerfumes(perfumesWithStats);
     } catch (error) {
       console.error("Error fetching favorite perfumes:", error);
@@ -73,7 +81,7 @@ export default function FavoritesScreen() {
       );
     }
 
-    if (favoriteIds.size === 0) {
+    if (validFavoritesCount === 0) {
       return (
         <View style={styles.centerContainer}>
           <Ionicons name="heart-outline" size={64} color="#9ca3af" />
@@ -82,15 +90,6 @@ export default function FavoritesScreen() {
             Start exploring and tap the heart icon to save your favorite
             fragrances
           </Text>
-        </View>
-      );
-    }
-
-    if (favoritePerfumes.length === 0) {
-      return (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.primary || "#007AFF"} />
-          <Text style={styles.loadingText}>Loading favorites...</Text>
         </View>
       );
     }
@@ -123,9 +122,9 @@ export default function FavoritesScreen() {
               <Text style={styles.title}>My Favorites</Text>
             </View>
             <Text style={styles.subtitle}>
-              {favoriteIds.size > 0
-                ? `${favoriteIds.size} favorite${
-                    favoriteIds.size === 1 ? "" : "s"
+              {validFavoritesCount > 0
+                ? `${validFavoritesCount} favorite${
+                    validFavoritesCount === 1 ? "" : "s"
                   }`
                 : "Your loved fragrances will appear here"}
             </Text>
