@@ -10,7 +10,7 @@ export interface Perfume {
   id: string;
   name: string;
   brand: string;
-  imageUrl: string;
+  image_url: string;
   averageRating: number;
   reviewCount: number;
 }
@@ -51,9 +51,11 @@ const PerfumeCard: React.FC<PerfumeCardProps> = ({ perfume }) => {
         onPress={handlePresentModal}
       >
         <Image
-          source={{ uri: perfume.imageUrl }}
+          source={{ uri: perfume.image_url }}
           style={styles.cardImage}
           resizeMode="cover"
+          onError={(error) => console.log('Image failed to load:', error)}
+          defaultSource={require('@/assets/images/haruma-logo.png')} // Add a placeholder image
         />
         <View style={styles.cardContent}>
           <View style={styles.favoriteIconContainer}>
@@ -80,10 +82,10 @@ const PerfumeCard: React.FC<PerfumeCardProps> = ({ perfume }) => {
           <View style={styles.ratingContainer}>
             <Ionicons name="star" size={16} color={Colors.primary} />
             <Text style={styles.ratingText}>
-              {perfume.averageRating.toFixed(1)}
+              {perfume.averageRating?.toFixed(1) || "0.0"}
             </Text>
             <Text style={styles.reviewText}>
-              ({perfume.reviewCount} reviews)
+              ({perfume.reviewCount || 0} reviews)
             </Text>
           </View>
         </View>
@@ -124,9 +126,8 @@ const styles = StyleSheet.create({
     borderColor: "#f3f4f6",
   },
   cardImage: {
-    width: 96,
-    height: "100%", // Make sure to set a fixed height for the parent if needed
-    minHeight: 120, // Add this to ensure a minimum height
+    width: 90,
+    height: 120,
   },
   cardContent: {
     flex: 1,

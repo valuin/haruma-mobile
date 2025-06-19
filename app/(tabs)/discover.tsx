@@ -1,63 +1,213 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, FlatList, StyleSheet } from "react-native";
-import { Colors } from "@/constants/Colors";
-import { Feather } from "@expo/vector-icons";
-import SAMPLE_PERFUMES from "@/constants/PerfumeData";
-import PerfumeCard from "@/components/PerfumeCard";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  TextInput,
+} from "react-native";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import PerfumeCard from "@/components/PerfumeCard";
+import { Colors } from "@/constants/Colors";
+import { supabase } from "@/supabase/supabase";
+import { Perfume, Review } from "@/types/perfume";
 
 export default function DiscoverScreen() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filteredPerfumes, setFilteredPerfumes] = useState(SAMPLE_PERFUMES);
+  const [perfumes, setPerfumes] = useState<Perfume[]>([]);
+  const [filteredPerfumes, setFilteredPerfumes] = useState<Perfume[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    const filtered = SAMPLE_PERFUMES.filter(
-      (perfume) =>
-        perfume.name.toLowerCase().includes(query.toLowerCase()) ||
-        perfume.brand.toLowerCase().includes(query.toLowerCase())
+  useEffect(() => {
+    console.log("DiscoverScreen mounted, fetching perfumes...");
+    fetchPerfumes();
+
+    return () => {
+      console.log("DiscoverScreen unmounted.");
+    };
+  }, []);
+
+  // Filter perfumes based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredPerfumes(perfumes);
+    } else {
+      const filtered = perfumes.filter((perfume) => {
+        const query = searchQuery.toLowerCase();
+
+        // Safely check each property with null/undefined checks
+        const name = perfume.name?.toLowerCase() || "";
+        const brand = perfume.brand?.toLowerCase() || "";
+        const description = perfume.description?.toLowerCase() || "";
+
+        // Handle notes array safely
+        const notesString = Array.isArray(perfume.notes)
+          ? perfume.notes.join(" ").toLowerCase()
+          : "";
+
+        return (
+          name.includes(query) ||
+          brand.includes(query) ||
+          description.includes(query) ||
+          notesString.includes(query)
+        );
+      });
+      setFilteredPerfumes(filtered);
+    }
+  }, [searchQuery, perfumes]);
+
+  const fetchPerfumesWithStats = async (): Promise<Perfume[]> => {
+    const { data: perfumes, error: perfumeError } = await supabase
+      .from("perfumes")
+      .select("*");
+    if (perfumeError) throw perfumeError;
+
+    const { data: reviews, error: reviewError } = await supabase
+      .from("reviews")
+      .select("id, perfume_id, rating");
+    if (reviewError) throw reviewError;
+
+    // Group reviews by perfume_id
+    const reviewsByPerfume: Record<string, Review[]> = {};
+    (reviews || []).forEach((review) => {
+      const r = review as { perfume_id: string; rating: number };
+      if (!reviewsByPerfume[r.perfume_id]) reviewsByPerfume[r.perfume_id] = [];
+      reviewsByPerfume[r.perfume_id].push(r as Review);
+    });
+
+    // Attach stats to each perfume
+    return (perfumes || []).map((perfume: Perfume) => {
+      const perfumeReviews = reviewsByPerfume[perfume.id] || [];
+      const reviewCount = perfumeReviews.length;
+      const averageRating =
+        reviewCount > 0
+          ? perfumeReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+            reviewCount
+          : 0;
+      return {
+        ...perfume,
+        averageRating,
+        reviewCount,
+      };
+    });
+  };
+
+  const fetchPerfumes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const perfumesWithStats = await fetchPerfumesWithStats();
+      setPerfumes(perfumesWithStats);
+    } catch (error) {
+      console.error("Error fetching perfumes:", error);
+      setError("Failed to load perfumes. Please try again.");
+      Alert.alert(
+        "Error",
+        "Failed to load perfumes. Please check your internet connection and try again.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary || "#007AFF"} />
+          <Text style={styles.loadingText}>Discovering fragrances...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>Something went wrong</Text>
+          <Text style={styles.errorSubtext}>Please try again later</Text>
+        </View>
+      );
+    }
+
+    if (filteredPerfumes.length === 0 && searchQuery.trim() !== "") {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyText}>No matches found</Text>
+          <Text style={styles.emptySubtext}>
+            Try searching with different keywords
+          </Text>
+        </View>
+      );
+    }
+
+    if (perfumes.length === 0) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyText}>No fragrances found</Text>
+          <Text style={styles.emptySubtext}>
+            Check back later for new discoveries
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <FlatList
+        data={filteredPerfumes}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <PerfumeCard perfume={item} />}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        refreshing={loading}
+        onRefresh={fetchPerfumes}
+      />
     );
-    setFilteredPerfumes(filtered);
   };
 
   return (
     <BottomSheetModalProvider>
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
+          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Search</Text>
+            <Text style={styles.title}>Discover Fragrances</Text>
+            <Text style={styles.subtitle}>Find your signature scent</Text>
           </View>
 
+          {/* Search Bar */}
           <View style={styles.searchContainer}>
-            <Feather
+            <Ionicons
               name="search"
               size={20}
-              color={Colors.text}
-              style={{ marginRight: 8 }}
+              color="#6b7280"
+              style={styles.searchIcon}
             />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search perfumes..."
-              placeholderTextColor={`${Colors.text}80`}
+              placeholder="Search fragrances, brands, or notes..."
               value={searchQuery}
-              onChangeText={handleSearch}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#9ca3af"
             />
+            {searchQuery.length > 0 && (
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color="#6b7280"
+                style={styles.clearIcon}
+                onPress={() => setSearchQuery("")}
+              />
+            )}
           </View>
 
-          <View style={styles.resultsContainer}>
-            <Text style={styles.resultsTitle}>Perfume Results</Text>
-            <FlatList
-              data={filteredPerfumes}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <PerfumeCard perfume={item} />}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={
-                <Text style={styles.emptyText}>No perfumes found.</Text>
-              }
-              contentContainerStyle={{ paddingBottom: 20 }}
-            />
-          </View>
+          {/* Content */}
+          {renderContent()}
         </View>
       </SafeAreaView>
     </BottomSheetModalProvider>
@@ -70,43 +220,79 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
+    padding: 20,
+    paddingTop: 40,
     flex: 1,
-    padding: 16,
   },
   header: {
-    marginBottom: 24,
+    paddingBottom: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: "bold",
-    color: Colors.text,
+    color: "#1f2937",
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 18,
+    color: "#6b7280",
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "white",
+    backgroundColor: "#f9fafb",
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  searchIcon: {
+    marginRight: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: Colors.text,
+    color: "#1f2937",
+    paddingVertical: 4,
   },
-  resultsContainer: {
-    marginTop: 8,
+  clearIcon: {
+    marginLeft: 12,
+  },
+  centerContainer: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
   },
-  resultsTitle: {
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#6b7280",
+  },
+  errorText: {
     fontSize: 18,
     fontWeight: "600",
-    color: Colors.text,
-    marginBottom: 16,
+    color: "#ef4444",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
   },
   emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1f2937",
     textAlign: "center",
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: "#6b7280",
-    marginTop: 16,
+    textAlign: "center",
   },
 });

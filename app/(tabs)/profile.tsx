@@ -7,6 +7,12 @@ export default function ProfileScreen() {
   // Get the favoriteIds Set from the store
   const favoriteIds = useFavoriteStore((state) => state.favoriteIds);
 
+  const uuidRegex =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  const validFavoritesCount = Array.from(favoriteIds).filter((id) =>
+    uuidRegex.test(id)
+  ).length;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -33,7 +39,7 @@ export default function ProfileScreen() {
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           {/* Display the actual count from the store */}
-          <Text style={styles.statNumber}>{favoriteIds.size}</Text>
+          <Text style={styles.statNumber}>{validFavoritesCount}</Text>
           <Text style={styles.statLabel}>Favorites</Text>
         </View>
       </View>

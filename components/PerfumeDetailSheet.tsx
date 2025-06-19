@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useState, forwardRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+  forwardRef,
+  ForwardedRef,
+} from "react";
 import {
   View,
   Text,
@@ -7,58 +13,33 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   TextInput,
-  FlatList, // Keep FlatList
   Button,
-  // ScrollView, // No longer needed here
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   BottomSheetModal,
-  BottomSheetView, // Use BottomSheetView instead of ScrollView
+  BottomSheetScrollView,
   BottomSheetBackdrop,
-  BottomSheetScrollView, // Remove BottomSheetScrollView
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
-import SAMPLE_PERFUMES from "@/constants/PerfumeData";
 import { useFavoriteStore } from "@/store/useFavoriteStore";
-import { Perfume } from "./PerfumeCard";
+import { Perfume } from "@/types/perfume";
+import { supabase } from "@/supabase/supabase";
 
-// --- Define Review Type ---
-interface Review {
+const REVIEWS_STORAGE_KEY_PREFIX = "@reviews_";
+
+interface ReviewWithUser {
   id: string;
-  author: string;
+  perfume_id: string;
+  user_id: string;
   rating: number;
-  text: string;
+  review_text: string; 
+  created_at: string;
+  users?: {
+    username: string;
+  };
 }
-const DUMMY_REVIEWS: Review[] = [
-  {
-    id: "r1",
-    author: "Alice",
-    rating: 5,
-    text: "Absolutely stunning fragrance! Lasts all day.",
-  },
-  {
-    id: "r2",
-    author: "Bob",
-    rating: 4,
-    text: "Very nice, a bit strong initially.",
-  },
-  {
-    id: "r3",
-    author: "Charlie",
-    rating: 5,
-    text: "My new signature scent. Highly recommend.",
-  },
-];
-// --- End Dummy Reviews Data ---
-
-// Replicate or import the fetch function
-const fetchPerfumeDetails = async (id: string): Promise<Perfume | null> => {
-  console.log("Fetching details for ID:", id);
-  await new Promise((resolve) => setTimeout(resolve, 1)); // Simulate network delay
-  const perfumeData = SAMPLE_PERFUMES.find((p) => p.id === id);
-  return perfumeData || null;
-};
 
 interface PerfumeDetailSheetProps {
   perfumeId: string | null;
@@ -66,343 +47,347 @@ interface PerfumeDetailSheetProps {
   onDismiss?: () => void;
 }
 
+// Fetch perfume details
+const fetchPerfumeDetails = async (id: string): Promise<Perfume | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("perfumes")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      console.error("Supabase error fetching perfume:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in fetchPerfumeDetails:", error);
+    return null;
+  }
+};
+
+// Fetch reviews with joined user data
+const fetchReviews = async (perfumeId: string): Promise<ReviewWithUser[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*, users(username)")
+      .eq("perfume_id", perfumeId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching reviews with users:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching reviews:", error);
+    return [];
+  }
+};
+
+// Get locally stored reviews
+const getStoredReviews = async (
+  perfumeId: string
+): Promise<ReviewWithUser[]> => {
+  try {
+    const jsonValue = await AsyncStorage.getItem(
+      `${REVIEWS_STORAGE_KEY_PREFIX}${perfumeId}`
+    );
+    return jsonValue != null ? JSON.parse(jsonValue) : [];
+  } catch (e) {
+    console.error("Failed to fetch reviews from storage", e);
+    return [];
+  }
+};
+
+// Add a review to local storage
+const addStoredReview = async (
+  perfumeId: string,
+  newReview: ReviewWithUser
+) => {
+  try {
+    const existingReviews = await getStoredReviews(perfumeId);
+    const updatedReviews = [newReview, ...existingReviews];
+    const jsonValue = JSON.stringify(updatedReviews);
+    await AsyncStorage.setItem(
+      `${REVIEWS_STORAGE_KEY_PREFIX}${perfumeId}`,
+      jsonValue
+    );
+  } catch (e) {
+    console.error("Failed to save review to storage", e);
+  }
+};
+
 const PerfumeDetailSheet = forwardRef<
   BottomSheetModal,
   PerfumeDetailSheetProps
->(({ perfumeId, snapPoints, onDismiss }, ref) => {
-  const [perfumeDetails, setPerfumeDetails] = useState<Perfume | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [newReviewText, setNewReviewText] = useState("");
-  const MY_RATING = 4;
+>(
+  (
+    { perfumeId, snapPoints, onDismiss },
+    ref: ForwardedRef<BottomSheetModal>
+  ) => {
+    const [perfumeDetails, setPerfumeDetails] = useState<Perfume | null>(null);
+    const [reviews, setReviews] = useState<ReviewWithUser[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [newReviewText, setNewReviewText] = useState("");
 
-  const favoriteIds = useFavoriteStore((state) => state.favoriteIds);
-  const toggleFavorite = useFavoriteStore((state) => state.toggleFavorite);
+    const favoriteIds = useFavoriteStore((state) => state.favoriteIds);
+    const toggleFavorite = useFavoriteStore((state) => state.toggleFavorite);
 
-  useEffect(() => {
-    if (perfumeId) {
-      setIsLoading(true);
-      setError(null);
-      setPerfumeDetails(null);
-      setReviews([]);
-      setNewReviewText("");
-      fetchPerfumeDetails(perfumeId)
-        .then((data) => {
-          if (data) {
-            setPerfumeDetails(data);
-            setReviews(DUMMY_REVIEWS);
-          } else {
-            setError("Perfume details not found.");
+    const MY_RATING = 4;
+
+    useEffect(() => {
+      if (!perfumeId) return;
+
+      const loadData = async () => {
+        setIsLoading(true);
+        setError(null);
+        setPerfumeDetails(null);
+        setReviews([]);
+        setNewReviewText("");
+
+        try {
+          const [perfume, supabaseReviews, storedReviews] = await Promise.all([
+            fetchPerfumeDetails(perfumeId),
+            fetchReviews(perfumeId),
+            getStoredReviews(perfumeId),
+          ]);
+
+          setPerfumeDetails(perfume);
+
+          // Combine reviews, ensuring no duplicates, and sort by date
+          const allReviews = [...storedReviews, ...supabaseReviews];
+          const uniqueReviews: ReviewWithUser[] = [];
+          const seenIds = new Set<string>();
+
+          for (const review of allReviews) {
+            if (!seenIds.has(review.id)) {
+              uniqueReviews.push(review);
+              seenIds.add(review.id);
+            }
           }
-        })
-        .catch((err) => {
-          console.error("Error fetching perfume details:", err);
+
+          uniqueReviews.sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          );
+
+          setReviews(uniqueReviews);
+        } catch (err) {
+          console.error("Error fetching data:", err);
           setError("Failed to load details.");
-        })
-        .finally(() => setIsLoading(false));
-    } else {
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadData();
+    }, [perfumeId]);
+
+    const handleSheetDismiss = useCallback(() => {
       setPerfumeDetails(null);
-      setIsLoading(false);
-      setError(null);
       setReviews([]);
       setNewReviewText("");
-    }
-  }, [perfumeId]);
+      setError(null);
+      setIsLoading(false);
+      onDismiss?.();
+    }, [onDismiss]);
 
-  const handleSheetDismiss = useCallback(() => {
-    setPerfumeDetails(null);
-    setIsLoading(false);
-    setError(null);
-    setReviews([]);
-    setNewReviewText("");
-    onDismiss?.();
-  }, [onDismiss]);
+    const handleReviewSubmit = useCallback(async () => {
+      if (!newReviewText.trim() || !perfumeDetails) return;
 
-  const handleReviewSubmit = useCallback(() => {
-    if (newReviewText.trim() === "") {
-      return;
-    }
-    const newReview: Review = {
-      id: `myReview_${Date.now()}`,
-      author: "You",
-      rating: MY_RATING,
-      text: newReviewText.trim(),
-    };
-    setReviews((prevReviews) => [newReview, ...prevReviews]);
-    setNewReviewText("");
-  }, [newReviewText]);
+      const newReview: ReviewWithUser = {
+        id: `local_${Date.now()}`,
+        perfume_id: perfumeDetails.id,
+        user_id: "currentUser",
+        rating: MY_RATING,
+        review_text: newReviewText.trim(),
+        created_at: new Date().toISOString(),
+        users: {
+          username: "You",
+        },
+      };
 
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
+      setReviews((prev) => [newReview, ...prev]);
+      setNewReviewText("");
 
-  const renderReviewItem = ({ item }: { item: Review }) => (
-    <View style={styles.reviewItem}>
-      <View style={styles.reviewHeader}>
-        <Text style={styles.reviewAuthor}>{item.author}</Text>
-        <View style={styles.reviewRating}>
-          {[...Array(5)].map((_, i) => (
-            <Ionicons
-              key={i}
-              name={i < item.rating ? "star" : "star-outline"}
-              size={14}
-              color={i < item.rating ? Colors.primary : Colors.secondary}
-              style={{ marginRight: 2 }}
-            />
-          ))}
-        </View>
-      </View>
-      <Text style={styles.reviewText}>{item.text}</Text>
-    </View>
-  );
+      await addStoredReview(perfumeDetails.id, newReview);
+    }, [newReviewText, perfumeDetails]);
 
-  // --- Component to render the header content ---
-  const ListHeader = () => (
-    <>
-      {/* --- Favorite Button --- */}
-      <TouchableOpacity
-        style={styles.favoriteButton}
-        onPress={() => perfumeDetails && toggleFavorite(perfumeDetails.id)}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        disabled={!perfumeDetails} // Disable if details aren't loaded
-      >
-        <Ionicons
-          name={
-            perfumeDetails && favoriteIds.has(perfumeDetails.id)
-              ? "heart"
-              : "heart-outline"
-          }
-          size={28}
-          color={Colors.primary}
+    const renderBackdrop = useCallback(
+      (props: any) => (
+        <BottomSheetBackdrop
+          {...props}
+          disappearsOnIndex={-1}
+          appearsOnIndex={0}
+          opacity={0.5}
+          pressBehavior="close"
         />
-      </TouchableOpacity>
+      ),
+      []
+    );
 
-      <Image
-        source={{ uri: perfumeDetails!.imageUrl }} // Use non-null assertion or check
-        style={styles.sheetImage}
-      />
-      <Text style={styles.sheetName}>{perfumeDetails!.name}</Text>
-      <Text style={styles.sheetBrand}>{perfumeDetails!.brand}</Text>
-      <Text style={styles.sheetDetails}>
-        Rating: {perfumeDetails!.averageRating.toFixed(1)} (
-        {perfumeDetails!.reviewCount} reviews)
-      </Text>
-      <Text style={styles.sheetDetails}>
-        A captivating scent with notes of lol...
-      </Text>
+    // Calculate stats from reviews
+    const reviewCount = reviews.length;
+    const averageRating =
+      reviewCount > 0
+        ? reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviewCount
+        : 0;
 
-      {/* --- Reviews Section Title & Add Review Form --- */}
-      <View style={styles.reviewsSection}>
-        <Text style={styles.reviewsTitle}>Reviews</Text>
-
-        {/* --- Add Review Form --- */}
-        <View style={styles.addReviewContainer}>
-          <TextInput
-            style={styles.reviewInput}
-            placeholder="Write your review..."
-            value={newReviewText}
-            onChangeText={setNewReviewText}
-            multiline
-          />
-          <Button
-            title="Submit Review"
-            onPress={handleReviewSubmit}
-            disabled={newReviewText.trim() === ""}
-            color={Colors.primary}
-          />
-        </View>
-
-        {/* Replace FlatList with direct rendering */}
-        {reviews.length > 0 ? (
-          reviews.map((item) => (
-            <View key={item.id} style={styles.reviewItem}>
-              <View style={styles.reviewHeader}>
-                <Text style={styles.reviewAuthor}>{item.author}</Text>
-                <View style={styles.reviewRating}>
-                  {[...Array(5)].map((_, i) => (
-                    <Ionicons
-                      key={i}
-                      name={i < item.rating ? "star" : "star-outline"}
-                      size={14}
-                      color={
-                        i < item.rating ? Colors.primary : Colors.secondary
-                      }
-                      style={{ marginRight: 2 }}
-                    />
-                  ))}
-                </View>
-              </View>
-              <Text style={styles.reviewText}>{item.text}</Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.noReviewsText}>No reviews yet.</Text>
-        )}
-      </View>
-    </>
-  );
-  // --- End Header Component ---
-
-  return (
-    <BottomSheetModal
-      ref={ref}
-      index={0}
-      snapPoints={snapPoints}
-      enableDynamicSizing={false}
-      onDismiss={handleSheetDismiss}
-      enablePanDownToClose={true}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: "#ffffff" }}
-    >
-      {/* Use BottomSheetView as the direct child */}
-      <BottomSheetScrollView
-        contentContainerStyle={styles.sheetContentContainer}
+    return (
+      <BottomSheetModal
+        ref={ref}
+        index={0}
+        snapPoints={snapPoints}
+        onDismiss={handleSheetDismiss}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: "#fff" }}
       >
-        {isLoading && (
-          <ActivityIndicator
-            size="large"
-            color={Colors.primary}
-            style={styles.loader}
-          />
-        )}
-        {!isLoading && error && <Text style={styles.errorText}>{error}</Text>}
-        {!isLoading && perfumeDetails && (
-          <>
-            {/* --- Favorite Button --- */}
-            <TouchableOpacity
-              style={styles.favoriteButton}
-              onPress={() => toggleFavorite(perfumeDetails.id)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name={
-                  favoriteIds.has(perfumeDetails.id) ? "heart" : "heart-outline"
-                }
-                size={28}
-                color={Colors.primary}
-              />
-            </TouchableOpacity>
-
-            <Image
-              source={{ uri: perfumeDetails.imageUrl }}
-              style={styles.sheetImage}
-            />
-            <Text style={styles.sheetName}>{perfumeDetails.name}</Text>
-            <Text style={styles.sheetBrand}>{perfumeDetails.brand}</Text>
-            <Text style={styles.sheetDetails}>
-              Rating: {perfumeDetails.averageRating.toFixed(1)} (
-              {perfumeDetails.reviewCount} reviews)
-            </Text>
-            <Text style={styles.sheetDetails}>
-              A captivating scent with notes of...
-            </Text>
-
-            {/* --- Reviews Section --- */}
-            <View style={styles.reviewsSection}>
-              <Text style={styles.reviewsTitle}>Reviews</Text>
-
-              {/* --- Add Review Form --- */}
-              <View style={styles.addReviewContainer}>
-                <TextInput
-                  style={styles.reviewInput}
-                  placeholder="Write your review..."
-                  value={newReviewText}
-                  onChangeText={setNewReviewText}
-                  multiline
-                />
-                <Button
-                  title="Submit Review"
-                  onPress={handleReviewSubmit}
-                  disabled={newReviewText.trim() === ""}
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetContentContainer}
+        >
+          {isLoading ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.loadingText}>Loading perfume details...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <Text style={styles.errorSubtext}>Please try again later</Text>
+            </View>
+          ) : perfumeDetails ? (
+            <>
+              <TouchableOpacity
+                style={styles.favoriteButton}
+                onPress={() => toggleFavorite(perfumeDetails.id)}
+              >
+                <Ionicons
+                  name={
+                    favoriteIds.has(perfumeDetails.id)
+                      ? "heart"
+                      : "heart-outline"
+                  }
+                  size={28}
                   color={Colors.primary}
                 />
-              </View>
+              </TouchableOpacity>
 
-              {/* --- Render Reviews using map() instead of FlatList --- */}
-              {reviews.length === 0 && !isLoading && perfumeDetails ? (
-                // Show empty text only if details are loaded and reviews are empty
-                <Text style={styles.noReviewsText}>No reviews yet.</Text>
-              ) : (
-                reviews.map((item) => (
-                  // Render each review item directly.
-                  // IMPORTANT: Add the key prop here!
-                  <View key={item.id} style={styles.reviewItem}>
-                    <View style={styles.reviewHeader}>
-                      <Text style={styles.reviewAuthor}>{item.author}</Text>
-                      <View style={styles.reviewRating}>
-                        {[...Array(5)].map((_, i) => (
-                          <Ionicons
-                            key={i} // Inner key for the stars map
-                            name={i < item.rating ? "star" : "star-outline"}
-                            size={14}
-                            color={
-                              i < item.rating
-                                ? Colors.primary
-                                : Colors.secondary
-                            }
-                            style={{ marginRight: 2 }}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                    <Text style={styles.reviewText}>{item.text}</Text>
-                  </View>
-                ))
+              <Image
+                source={{ uri: perfumeDetails.image_url }}
+                style={styles.sheetImage}
+              />
+              <Text style={styles.sheetName}>{perfumeDetails.name}</Text>
+              <Text style={styles.sheetBrand}>{perfumeDetails.brand}</Text>
+              <Text style={styles.sheetDetails}>
+                Rating: {averageRating.toFixed(1)} ({reviewCount} reviews)
+              </Text>
+              {perfumeDetails.description && (
+                <Text style={styles.sheetDetails}>
+                  {perfumeDetails.description}
+                </Text>
               )}
-              {/* --- End Review Rendering --- */}
-            </View>
-            {/* --- End Reviews Section --- */}
-          </>
-        )}
-      </BottomSheetScrollView>
-    </BottomSheetModal>
-  );
-});
+              {perfumeDetails.notes && perfumeDetails.notes.length > 0 && (
+                <Text style={styles.sheetDetails}>
+                  Notes: {perfumeDetails.notes.join(", ")}
+                </Text>
+              )}
+
+              <View style={styles.reviewsSection}>
+                <Text style={styles.reviewsTitle}>Reviews</Text>
+
+                <View style={styles.addReviewContainer}>
+                  <TextInput
+                    style={styles.reviewInput}
+                    placeholder="Write your review..."
+                    value={newReviewText}
+                    onChangeText={setNewReviewText}
+                    multiline
+                  />
+                  <Button
+                    title="Submit Review"
+                    onPress={handleReviewSubmit}
+                    disabled={newReviewText.trim() === ""}
+                    color={Colors.primary}
+                  />
+                </View>
+
+                {reviews.length === 0 ? (
+                  <Text style={styles.noReviewsText}>No reviews yet.</Text>
+                ) : (
+                  <View>
+                    {reviews.map((item) => (
+                      <View key={item.id} style={styles.reviewItem}>
+                        <View style={styles.reviewHeader}>
+                          <Text style={styles.reviewAuthor}>
+                            {item.users?.username ?? `User ${item.user_id}`}
+                          </Text>
+                          <View style={styles.reviewRating}>
+                            {[...Array(5)].map((_, i) => (
+                              <Ionicons
+                                key={i}
+                                name={i < item.rating ? "star" : "star-outline"}
+                                size={14}
+                                color={
+                                  i < item.rating
+                                    ? Colors.primary
+                                    : Colors.secondary
+                                }
+                                style={{ marginRight: 2 }}
+                              />
+                            ))}
+                          </View>
+                        </View>
+                        <Text style={styles.reviewText}>{item.review_text}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </>
+          ) : null}
+        </BottomSheetScrollView>
+      </BottomSheetModal>
+    );
+  }
+);
+
+PerfumeDetailSheet.displayName = "PerfumeDetailSheet";
+
 const styles = StyleSheet.create({
-  sheetContainer: {
-    flex: 1, // Allow FlatList to take full height
-    // Remove alignment/padding here, apply to FlatList's contentContainerStyle
-  },
   sheetContentContainer: {
-    // flex: 1, // Remove flex: 1 if using ScrollView
     alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 50, // Add more padding at the bottom for scroll
-    position: "relative",
+    paddingBottom: 50,
   },
-  loader: {
+  centerContainer: {
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 50,
   },
-  listContentContainer: {
-    alignItems: "center", // Center header items
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 50, // Ensure space at the bottom
-    position: "relative", // Needed for absolute positioning of favorite button
-  },
-  reviewsSectionHeader: {
-    marginTop: 20,
-    width: "100%", // Take full width within the centered content
-    borderTopWidth: 1,
-    borderTopColor: Colors.secondary,
-    paddingTop: 15,
-    alignItems: "center", // Center title and form
+  loadingText: {
+    fontSize: 16,
+    color: "#6b7280",
+    marginTop: 10,
   },
   errorText: {
-    marginTop: 50,
-    fontSize: 16,
-    color: Colors.error,
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#ef4444",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: "#6b7280",
     textAlign: "center",
   },
   sheetImage: {
@@ -429,6 +414,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginBottom: 8,
     textAlign: "center",
+    paddingHorizontal: 10,
   },
   favoriteButton: {
     position: "absolute",
@@ -437,7 +423,6 @@ const styles = StyleSheet.create({
     zIndex: 1,
     padding: 5,
   },
-  // --- Review Styles ---
   reviewsSection: {
     marginTop: 20,
     width: "100%",
@@ -463,11 +448,11 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 10,
     minHeight: 60,
-    textAlignVertical: "top", // Align placeholder text to top for multiline
+    textAlignVertical: "top",
     fontSize: 14,
   },
   reviewItem: {
-    backgroundColor: Colors.background, // Light background for each review
+    backgroundColor: Colors.background,
     padding: 12,
     borderRadius: 8,
     marginBottom: 10,
@@ -498,7 +483,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginTop: 10,
   },
-  // --- End Review Styles ---
 });
 
 export default PerfumeDetailSheet;
